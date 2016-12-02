@@ -288,7 +288,10 @@ int main (int argc, char *argv[])
     total_power = kwh / 1000;
     pthread_mutex_unlock(&power_stat_mutex) ;
 
-    printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
+    char data[1024];
+    sprintf(data, "{\"timestamp\":%Ld, \"W\":%d, \"kWh\": %.3f }", total_power, avg_power);
+    puts(data);
+    //printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
   }
 
   return 0 ;
