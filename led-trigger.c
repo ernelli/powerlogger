@@ -3,6 +3,7 @@
 #include <string.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 #ifndef TEST_HTTP
 #include <wiringPi.h>
@@ -92,7 +93,7 @@ int http_client(const char *url, const char *method, unsigned char *entity_body,
   //printf("connect to: %08X:%d\n", *(unsigned int *)&addr.sin_addr, port);
   
   if(connect(s, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-    printf("connect failed: %s\n", strerror(errno));
+    fprintf(stderr, "connect failed: %s\n", strerror(errno));
     goto cleanup;
   }
 
@@ -200,6 +201,11 @@ unsigned int lastTrigger = 0;
 int power = 0;
 int kwh = 0;
 
+int num_power = 0;
+int sum_power = 0;
+
+pthread_mutex_t power_stat_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void edge_trigger_cb() {
   //unsigned int delta = 0, now;
   timestamp_us delta = 0, now;
@@ -212,12 +218,18 @@ void edge_trigger_cb() {
 
   lastTrigger = now;
 
+  pthread_mutex_lock(&power_stat_mutex) ;
   kwh++;
+
   if(delta) {
     power = (int)(3600LL*1000000LL/delta);
-  }
 
-  printf("timestamp: %Ld, power: %d\n", now/1000, power);
+    sum_power += power;
+    num_power++;
+  }
+  pthread_mutex_unlock(&power_stat_mutex) ;
+
+  //  printf("timestamp: %Ld, power: %d\n", now/1000, power);
 }
 
 
@@ -225,6 +237,7 @@ void edge_trigger_cb() {
 
 int main (int argc, char *argv[])
 {
+#ifdef TEST_HTTP
   if(argc >= 2) {
     char sendbuffer[4096];
     char response[4096];
@@ -239,7 +252,7 @@ int main (int argc, char *argv[])
     }
   }
 
-#ifndef TEST_HTTP
+#else
   printf("calling wiringPi setup\n");
   wiringPiSetup () ;
 
@@ -254,9 +267,23 @@ int main (int argc, char *argv[])
 
   printf("edge trigger setup, waiting for events\n");
 
+  timestamp ts_now = getCurrentTime();
+
   while(1) {
-    sleep(10);
-    printf("10 seconds passed, kWh: %d.%d, power: %d\n", kwh/1000, kwh%1000, power);
+    
+    timestamp ts_done = ts_now % 10000LL;
+    timestamp ts_remain = 10000LL - ts_done;
+    
+    delay((unsigned int)ts_remain);
+    ts_now = getCurrentTime();
+    int avg_power;
+    double  total_power;
+    pthread_mutex_lock(&power_stat_mutex) ;
+    avg_power = sum_power / (num_power ? num_power : 1);
+    total_power = kwh / 1000;
+    pthread_mutex_unlock(&power_stat_mutex) ;
+
+    printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
   }
 
   return 0 ;
