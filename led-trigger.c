@@ -196,7 +196,7 @@ int http_client(const char *url, const char *method, unsigned char *entity_body,
 
 
 
-unsigned int lastTrigger = 0;
+timestamp_us lastTrigger = 0;
 
 int power = 0;
 int kwh = 0;
@@ -216,6 +216,10 @@ void edge_trigger_cb() {
     delta = now - lastTrigger;
   }
 
+  if(delta && delta < 5000) {
+    return; // ignore spurious pulses
+  }
+
   lastTrigger = now;
 
   pthread_mutex_lock(&power_stat_mutex) ;
@@ -229,7 +233,7 @@ void edge_trigger_cb() {
   }
   pthread_mutex_unlock(&power_stat_mutex) ;
 
-  //  printf("timestamp: %Ld, power: %d\n", now/1000, power);
+  printf("timestamp: %Ld, power: %d\n", now/1000, power);
 }
 
 
@@ -256,6 +260,7 @@ int main (int argc, char *argv[])
   printf("calling wiringPi setup\n");
   wiringPiSetup () ;
 
+  piHiPri(99);
 
   printf("setup edge ISR\n");
 
