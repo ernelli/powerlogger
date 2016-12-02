@@ -233,7 +233,7 @@ void edge_trigger_cb() {
   }
   pthread_mutex_unlock(&power_stat_mutex) ;
 
-  printf("timestamp: %Ld, power: %d\n", now/1000, power);
+  //printf("timestamp: %Ld, power: %d\n", now/1000, power);
 }
 
 
@@ -298,12 +298,14 @@ int main (int argc, char *argv[])
     //puts(data);
     if(http_url) {
       char response[2048];
-      int statusCode = http_client(http_url, "PUT", response, sizeof(response), data, strlen(data), "content-type: application/json\r\n");
+      response[0] = '\0';
+      int statusCode = http_client(http_url, "POST", response, sizeof(response), data, strlen(data), "content-type: application/json\r\n");
       if(statusCode != 200) {
         if(statusCode == -1) {
-          fprintf(stderr, "Failed to send data, error: %s", strerror(errno));
+          fprintf(stderr, "Failed to send data, error: %s\n", strerror(errno));
         } else {
-          fprintf(stderr, "Failed to send data, statusCode: %d", statusCode);
+          fprintf(stderr, "Failed to send data, statusCode: %d, response: %s\n", statusCode, response);
+          
         }
       }
     }
