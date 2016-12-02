@@ -269,6 +269,11 @@ int main (int argc, char *argv[])
     return 1;
   } 
 
+  const char *http_url = NULL;
+
+  if(argc >= 2) {
+    http_url = argv[1];
+  }
 
   printf("edge trigger setup, waiting for events\n");
 
@@ -285,12 +290,23 @@ int main (int argc, char *argv[])
     double  total_power;
     pthread_mutex_lock(&power_stat_mutex) ;
     avg_power = sum_power / (num_power ? num_power : 1);
-    total_power = kwh / 1000;
+    total_power = (double)kwh / 1000;
     pthread_mutex_unlock(&power_stat_mutex) ;
 
     char data[1024];
-    sprintf(data, "{\"timestamp\":%Ld, \"W\":%d, \"kWh\": %.3f }", total_power, avg_power);
-    puts(data);
+    sprintf(data, "{\"timestamp\":%Ld, \"kW\":%.3f, \"kWh\": %.3f }", ts_now, (double)avg_power/1000, total_power);
+    //puts(data);
+    if(http_url) {
+      char response[2048];
+      int statusCode = http_client(http_url, "PUT", response, sizeof(response), data, strlen(data), "content-type: application/json\r\n");
+      if(statusCode != 200) {
+        if(statusCode == -1) {
+          fprintf(stderr, "Failed to send data, error: %s", strerror(errno));
+        } else {
+          fprintf(stderr, "Failed to send data, statusCode: %d", statusCode);
+        }
+      }
+    }
     //printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
   }
 
