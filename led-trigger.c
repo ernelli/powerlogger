@@ -291,6 +291,8 @@ int main (int argc, char *argv[])
     pthread_mutex_lock(&power_stat_mutex) ;
     avg_power = sum_power / (num_power ? num_power : 1);
     total_power = (double)kwh / 1000;
+    sum_power = 0;
+    num_power = 0;
     pthread_mutex_unlock(&power_stat_mutex) ;
 
     char data[1024];
