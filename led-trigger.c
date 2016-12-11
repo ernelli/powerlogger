@@ -235,6 +235,7 @@ void edge_trigger_cb() {
   if(lastTrigger) {
     delta = triggerStart - lastTrigger;
   } else {
+    lastTrigger = triggerStart;
     return;
   }
 
