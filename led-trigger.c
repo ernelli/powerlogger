@@ -206,32 +206,64 @@ int sum_power = 0;
 
 pthread_mutex_t power_stat_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+timestamp_us triggerStart;
+
+int pulseStat[30];
+
 void edge_trigger_cb() {
   //unsigned int delta = 0, now;
-  timestamp_us delta = 0, now;
+  timestamp_us delta = 0, now, pulseWidth;
 
   now = getCurrentTime_us(); //millis();
 
+  if(digitalRead(0) == 0) {
+    triggerStart = now;
+  } else {
+    pulseWidth = now -triggerStart;
+  }  
+
+  if(pulseWidth < 1000 || pulseWidth > 2500) {
+    printf("invalid meter pulse duration: %Ld us\n", pulseWidth);
+  } else {
+    int bucket = pulseWidth / 100;
+    if(bucket > 0 && bucket < 30) {
+      pulseStat[bucket]++;
+    }
+  }
+
+
   if(lastTrigger) {
-    delta = now - lastTrigger;
+    delta = triggerStart - lastTrigger;
+  } else {
+    return;
   }
 
   if(delta && delta < 5000) {
     return; // ignore spurious pulses
   }
 
-  lastTrigger = now;
+  if(delta) {
+    power = (int)(3600LL*1000000LL/delta);
+  } else {
+    power = 0;
+  }
+  
+  lastTrigger = triggerStart;
 
   pthread_mutex_lock(&power_stat_mutex) ;
   kwh++;
 
-  if(delta) {
-    power = (int)(3600LL*1000000LL/delta);
-
-    sum_power += power;
-    num_power++;
-  }
+  power = (int)(3600LL*1000000LL/delta);
+  
+  sum_power += power;
+  num_power++;
+  
   pthread_mutex_unlock(&power_stat_mutex) ;
+
+  // if repored power exceeds 40kW, a weird power reading has been made
+  if(power > 40000) {
+    printf("Power reading out of range: %.3f, pulse interval: %Ld us\n", (double)power/1000, delta);
+  }
 
   //printf("timestamp: %Ld, power: %d\n", now/1000, power);
 }
@@ -262,9 +294,11 @@ int main (int argc, char *argv[])
 
   piHiPri(99);
 
+  pinMode (0, INPUT) ;
+  pullUpDnControl (0, PUD_UP);
+  
   printf("setup edge ISR\n");
-
-  if(wiringPiISR (0, INT_EDGE_FALLING,  edge_trigger_cb) != 0) {
+  if(wiringPiISR (0, INT_EDGE_BOTH,  edge_trigger_cb) != 0) {
     printf("Failed to setup ISR");
     return 1;
   } 
