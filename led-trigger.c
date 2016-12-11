@@ -222,7 +222,7 @@ void edge_trigger_cb() {
     pulseWidth = now -triggerStart;
   }  
 
-  if(pulseWidth < 1000 || pulseWidth > 2500) {
+  if(pulseWidth < 1000 || pulseWidth > 3000) {
     printf("invalid meter pulse duration: %Ld us\n", pulseWidth);
   } else {
     int bucket = pulseWidth / 100;
@@ -262,7 +262,7 @@ void edge_trigger_cb() {
 
   // if repored power exceeds 40kW, a weird power reading has been made
   if(power > 40000) {
-    printf("Power reading out of range: %.3f, pulse interval: %Ld us\n", (double)power/1000, delta);
+    printf("timestamp: %Ld, Power reading out of range: %.3f, pulse interval: %Ld us\n", triggerStart/1000, (double)power/1000, delta);
   }
 
   //printf("timestamp: %Ld, power: %d\n", now/1000, power);
@@ -345,7 +345,9 @@ int main (int argc, char *argv[])
         }
       }
     }
-    //printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
+    if(!http_url) {
+      printf("10 seconds passed, kWh: %.3f, power: %d\n", total_power, avg_power);
+    }
   }
 
   return 0 ;
