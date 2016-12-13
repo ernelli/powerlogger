@@ -208,7 +208,9 @@ pthread_mutex_t power_stat_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 timestamp_us triggerStart;
 
+#ifdef PULSE_STAT
 int pulseStat[30];
+#endif
 
 void edge_trigger_cb() {
   //unsigned int delta = 0, now;
@@ -224,13 +226,23 @@ void edge_trigger_cb() {
   }  
 
   if(pulseWidth < 1000 || pulseWidth > 3000) {
-    printf("invalid meter pulse duration: %Ld us\n", pulseWidth);
+    fprintf(stderr, "timestamp: %Ld, invalid meter pulse duration: %Ld us\n", now/1000, pulseWidth);
+    fflush(stderr);
+#ifdef PULSE_STAT
+    int i;
+    for(i = 0; i < sizeof(pulseStat)/sizeof(pulseStat[0]); i++) {
+      printf("stat bucket: %2d, count: %d\n", i, pulseStat[i]);
+      pulseStat[i] = 0;
+    }
     fflush(stdout);
+#endif
   } else {
+#ifdef PULSE_STAT
     int bucket = pulseWidth / 100;
     if(bucket > 0 && bucket < 30) {
       pulseStat[bucket]++;
     }
+#endif
   }
 
 
@@ -254,19 +266,19 @@ void edge_trigger_cb() {
   lastTrigger = triggerStart;
 
   pthread_mutex_lock(&power_stat_mutex) ;
-  kwh++;
 
-  power = (int)(3600LL*1000000LL/delta);
-  
-  sum_power += power;
-  num_power++;
-  
+  kwh++;
+  if(power) {
+    sum_power += power;
+    num_power++;
+  }
+
   pthread_mutex_unlock(&power_stat_mutex) ;
 
-  // if repored power exceeds 40kW, a weird power reading has been made
+  // if reported power exceeds 40kW, a weird power reading has been made
   if(power > 40000) {
-    printf("timestamp: %Ld, Power reading out of range: %.3f, pulse interval: %Ld us\n", triggerStart/1000, (double)power/1000, delta);
-    fflush(stdout);
+    fprintf(stderr, "timestamp: %Ld, Power reading out of range: %.3f, pulse interval: %Ld us\n", triggerStart/1000, (double)power/1000, delta);
+    fflush(stderr);
   }
 
   //printf("timestamp: %Ld, power: %d\n", now/1000, power);
