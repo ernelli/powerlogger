@@ -33,6 +33,20 @@ timestamp_us getCurrentTime_us() {
   return (timestamp_us)time.tv_sec*1000000 + (timestamp_us)time.tv_usec;
 }
 
+const char *timestring() {
+  static char buffer[128];
+  struct timeval time;
+  struct tm tm;
+
+  gettimeofday(&time, NULL);
+  localtime_r(&time.tv_sec, &tm);
+
+  sprintf(buffer, "%4d-%02d-%02d %02d:%02d:%02d.%03d", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(time.tv_usec / 1000));
+
+  return buffer;
+}
+
+#define TS timestring()
 
 int http_client(const char *url, const char *method, unsigned char *entity_body, int len, const unsigned char *post_body, int post_len, const char *headers) {
   char scheme[32];
@@ -285,10 +299,10 @@ void edge_trigger_cb() {
 }
 
 
-
-
 int main (int argc, char *argv[])
 {
+  fprintf("%s powerlogger starting up\n", TS);
+
 #ifdef TEST_HTTP
   if(argc >= 2) {
     char sendbuffer[4096];
@@ -331,6 +345,8 @@ int main (int argc, char *argv[])
 
   fflush(stdout);
 
+  int http_error_logged = 0; // void logging http errors multiple times
+  
   while(1) {
     
     timestamp ts_done = ts_now % 10000LL;
@@ -355,12 +371,16 @@ int main (int argc, char *argv[])
       response[0] = '\0';
       int statusCode = http_client(http_url, "POST", response, sizeof(response), data, strlen(data), "content-type: application/json\r\n");
       if(statusCode != 200) {
-        if(statusCode == -1) {
-          fprintf(stderr, "Failed to send data, error: %s\n", strerror(errno));
-        } else {
-          fprintf(stderr, "Failed to send data, statusCode: %d, response: %s\n", statusCode, response);
-          
-        }
+	if(!http_error_logged) {
+	  if(statusCode == -1) {
+	    fprintf(stderr, "%s Failed to send data, error: %s\n", TS, strerror(errno));
+	  } else {
+	    fprintf(stderr, "%s Failed to send data, statusCode: %d, response: %s\n", TS, statusCode, response);
+	  }
+	}
+	http_error_logged = 1;
+      } else {
+	http_error_logged = 0;
       }
     }
     if(!http_url) {
