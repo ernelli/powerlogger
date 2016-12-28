@@ -1,11 +1,11 @@
 CC=gcc
 
-all: flash-led led-trigger
+all: flash-led powerlogger
 
 flash-led: flash-led.o
 	$(CC) -Wall -o flash-led flash-led.o -lwiringPi
 
-led-trigger: led-trigger.o
-	$(CC) -Wall -o led-trigger led-trigger.o -lwiringPi
+powerlogger: powerlogger.o
+	$(CC) -Wall -o powerlogger powerlogger.o -lwiringPi
 
 
