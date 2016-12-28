@@ -301,7 +301,7 @@ void edge_trigger_cb() {
 
 int main (int argc, char *argv[])
 {
-  fprintf("%s powerlogger starting up\n", TS);
+  fprintf(stderr, "%s powerlogger starting up\n", TS);
 
 #ifdef TEST_HTTP
   if(argc >= 2) {
